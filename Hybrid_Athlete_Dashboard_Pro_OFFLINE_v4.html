@@ -1,0 +1,724 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Hybrid Athlete — Pro Dashboard (OFFLINE v4)</title>
+<style>
+:root{--bg:#0f1115;--panel:#141827;--card:#171b2b;--text:#e7ecf5;--muted:#9aa8b4;--border:#20263a;--accent:#59d0ff;--ok:#25c481;--warn:#ffc65c;--bad:#f15b5b}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:var(--text);background:linear-gradient(180deg,#0f1115 0%,#0b0d12 100%)}
+header{padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;flex-wrap:wrap;position:sticky;top:0;background:#0f1115;z-index:10}
+h1{margin:0;font-size:20px;letter-spacing:.2px}
+button,select,input,textarea{background:#0d1020;color:var(--text);border:1px solid #26304a;border-radius:10px;padding:8px 10px}
+button{cursor:pointer}
+button.primary{background:var(--accent);color:#00121a;border:none}
+.container{padding:20px}
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;align-items:center}
+.panel{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:16px}
+.grid{display:grid;gap:16px}
+.grid-2{grid-template-columns:1fr 1fr}
+.grid-3{grid-template-columns:repeat(3,1fr)}
+.grid-4{grid-template-columns:repeat(4,1fr)}
+.grid-6{grid-template-columns:repeat(6,1fr)}
+@media(max-width:1100px){.grid-6{grid-template-columns:repeat(3,1fr)}.grid-4{grid-template-columns:repeat(2,1fr)}.grid-3{grid-template-columns:repeat(2,1fr)}.grid-2{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:12px 14px}
+.card h3{margin:0 0 6px 0;font-size:12px;text-transform:uppercase;color:var(--muted);letter-spacing:.8px}
+.value{font-size:24px;font-weight:700}
+.delta{font-size:12px;color:var(--muted)}
+.ok{color:var(--ok)}.warn{color:var(--warn)}.bad{color:var(--bad)}
+table{width:100%;border-collapse:collapse}
+th,td{padding:8px 10px;border-bottom:1px solid var(--border);font-size:13px;vertical-align:top}
+th{color:var(--muted);text-align:left}
+.small{font-size:12px;color:var(--muted)}
+.badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;background:#1b2338;border:1px solid #2a3557}
+footer{padding:18px 22px;color:var(--muted);border-top:1px solid var(--border);text-align:center}
+.section-title{margin:0 0 10px 0;font-size:16px}
+hr.sep{border:none;border-top:1px solid var(--border);margin:12px 0}
+label{font-size:12px;color:var(--muted)}
+.input-row{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-top:10px}
+@media(max-width:900px){.input-row{grid-template-columns:repeat(2,1fr)}}
+.actions button{margin-right:6px}
+canvas{width:100%;height:300px;border:1px solid #1f2332;border-radius:8px;background:#0d1020}
+.legend{display:flex;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:6px}
+.legend span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:middle}
+.legend .w::before{background:#8ab4f8}
+.legend .s::before{background:#7bd389}
+.legend .e::before{background:#f6c85f}
+.legend .r::before{background:#ff8c8c}
+.disclaimer{font-size:12px;color:var(--muted);margin-top:6px}
+.toolbar .group{display:flex;gap:8px;align-items:center}
+</style>
+</head>
+<body>
+<header>
+  <h1>Hybrid Athlete — Pro Dashboard (OFFLINE v4)</h1>
+  <div class="toolbar">
+    <div class="group">
+      <select id="segment">
+        <option value="week">Weekly</option>
+        <option value="day">Daily</option>
+        <option value="month">Monthly</option>
+      </select>
+      <button id="prevBtn">◀</button>
+      <select id="weekSelect" title="Pick any week"><option value="">This Week (auto)</option></select>
+      <select id="monthSelect" title="Pick any month"><option value="">This Month (auto)</option></select>
+      <button id="nextBtn">▶</button>
+      <select id="windowSel" title="Chart window">
+        <option value="4">Last 4 weeks</option>
+        <option value="8">Last 8 weeks</option>
+        <option value="12">Last 12 weeks</option>
+        <option value="24">Last 24 weeks</option>
+        <option value="0">All weeks</option>
+      </select>
+    </div>
+    <div class="group">
+      <button id="btnSuggest" class="primary">Run Protocol Advisor</button>
+      <button id="btnExportCurrent">Export Current View CSV</button>
+    </div>
+    <div class="group">
+      <button id="btnBackup">Backup (JSON)</button>
+      <input type="file" id="restoreFile" accept=".json" style="display:none"/>
+      <button id="btnRestore">Restore (JSON)</button>
+      <button id="btnClear">Clear Local Data</button>
+    </div>
+  </div>
+</header>
+
+<div class="container">
+  <!-- KPI Cards -->
+  <div class="grid grid-6">
+    <div class="card"><h3>Avg Weight</h3><div class="value" id="kpiWeight">—</div><div class="delta" id="kpiWeightDelta">vs 4W —</div></div>
+    <div class="card"><h3>Avg Sleep</h3><div class="value" id="kpiSleep">—</div><div class="delta" id="kpiSleepDelta">vs 4W —</div></div>
+    <div class="card"><h3>Avg Energy</h3><div class="value" id="kpiEnergy">—</div><div class="delta" id="kpiEnergyDelta">vs 4W —</div></div>
+    <div class="card"><h3>Avg Mood</h3><div class="value" id="kpiMood">—</div><div class="delta" id="kpiMoodDelta">vs 4W —</div></div>
+    <div class="card"><h3>Steps Total</h3><div class="value" id="kpiSteps">—</div><div class="delta" id="kpiStepsDelta">vs 4W —</div></div>
+    <div class="card"><h3>Avg Resting HR</h3><div class="value" id="kpiRHR">—</div><div class="delta" id="kpiRHRDelta">vs 4W —</div></div>
+  </div>
+
+  <!-- Insights -->
+  <div class="panel" id="insightsPanel">
+    <h2 class="section-title">Auto Insights</h2>
+    <div id="insightsList" class="small">Enter a couple weeks of data to unlock insights.</div>
+  </div>
+
+  <!-- Charts -->
+  <div class="panel">
+    <h2 class="section-title">Trends</h2>
+    <canvas id="trendChart" width="900" height="300"></canvas>
+    <div class="legend"><span class="w">Avg Weight</span><span class="s">Avg Sleep</span><span class="e">Avg Energy</span><span class="r">Avg RHR</span></div>
+    <div class="disclaimer">Window set by selector above. Weekly averages plotted.</div>
+  </div>
+  <div class="panel">
+    <h2 class="section-title">Readiness (0–100)</h2>
+    <canvas id="readyChart" width="900" height="300"></canvas>
+    <div class="small">Weighted by Sleep (30%), Energy (30%), Mood (20%), RHR (20%).</div>
+  </div>
+
+  <!-- Protocol Advisor -->
+  <div class="panel" id="advisorPanel">
+    <h2 class="section-title">Protocol Advisor</h2>
+    <div id="adviceText" class="small">Click “Run Protocol Advisor” to see recommendations based on your last 2–4 weeks.</div>
+    <hr class="sep"/>
+    <div id="adviceList"></div>
+  </div>
+
+  <!-- Settings -->
+  <div class="panel">
+    <h2 class="section-title">Settings</h2>
+    <div class="grid grid-3">
+      <div><label>Maintenance kcal (target)</label><input id="setMaint" type="number" placeholder="e.g., 3300"/></div>
+      <div><label>Daily step goal</label><input id="setSteps" type="number" placeholder="e.g., 10000"/></div>
+      <div><label>&nbsp;</label><button id="btnSaveSettings">Save Settings</button></div>
+    </div>
+    <div class="small">Settings are stored locally and used for insights and advisor thresholds.</div>
+  </div>
+
+  <!-- Table + Data Entry -->
+  <div class="panel">
+    <div class="grid grid-2">
+      <div>
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <h2 class="section-title">Table View — <span id="rangeLabel">—</span></h2>
+          <div class="actions">
+            <button id="btnToday">Today</button>
+            <button id="btnDupYday">Duplicate Yesterday</button>
+            <button id="btnNewMonth">Start New Month</button>
+            <button id="btnGenerateWeek">Duplicate Last Week</button>
+          </div>
+        </div>
+        <table id="dataTable"><thead></thead><tbody></tbody></table>
+      </div>
+      <div>
+        <h2 class="section-title">Quick Add / Edit Entry</h2>
+        <div class="input-row">
+          <div><label>Date</label><input type="date" id="inDate"/></div>
+          <div><label>Weight (kg)</label><input type="number" step="0.01" id="inWeight"/></div>
+          <div><label>Sleep (hr)</label><input type="number" step="0.1" id="inSleep"/></div>
+          <div><label>Energy (1–10)</label><input type="number" min="1" max="10" id="inEnergy"/></div>
+          <div><label>Mood (1–10)</label><input type="number" min="1" max="10" id="inMood"/></div>
+          <div><label>Hunger (1–10)</label><input type="number" min="1" max="10" id="inHunger"/></div>
+          <div><label>Training Type</label>
+            <select id="inTraining">
+              <option value="">—</option>
+              <option>Weights</option><option>Run</option><option>Incline Walk</option><option>Cross-Train</option><option>Rest</option>
+            </select>
+          </div>
+          <div><label>Cardio (min)</label><input type="number" id="inCardio"/></div>
+          <div><label>Steps</label><input type="number" id="inSteps"/></div>
+          <div><label>Resting HR</label><input type="number" id="inRHR"/></div>
+          <div><label>Calories</label><input type="number" id="inCalories" placeholder="kcal"/></div>
+          <div><label>Water (L)</label><input type="number" step="0.1" id="inWater"/></div>
+          <div><label>Bowel (1–5)</label><input type="number" min="1" max="5" id="inBowel"/></div>
+          <div><label>Stress (1–10)</label><input type="number" min="1" max="10" id="inStress"/></div>
+          <div><label>Libido (1–5)</label><input type="number" min="1" max="5" id="inLibido"/></div>
+          <div style="grid-column:1/-1"><label>Notes</label><textarea id="inNotes" rows="2" placeholder="How did today feel? Any events?"></textarea></div>
+          <div><label>Protocol Active</label>
+            <select id="inProtocol">
+              <option value="">—</option>
+              <option>Tighten-Up</option><option>Burnout</option><option>Sleep</option><option>Emotional</option>
+              <option>Reverse Diet</option><option>Deload</option><option>Gut Reset</option><option>Travel</option>
+              <option>Visual Reset</option><option>Recomposition</option><option>Binge Recovery</option><option>Social Surplus</option>
+            </select>
+          </div>
+        </div>
+        <div style="margin-top:10px; display:flex; gap:10px">
+          <button id="btnAdd" class="primary">Add / Update Day</button>
+          <button id="btnResetForm">Reset Form</button>
+          <button id="btnDelete">Delete Day</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  100% offline. Data saved in your browser (localStorage). Use Backup/Restore JSON or Export CSV anytime.
+</footer>
+
+<script>
+// ====== State & helpers ======
+const COLS = ["Date","Day","Weight (kg)","Sleep (hr)","Energy (1–10)","Mood (1–10)","Hunger (1–10)","Training Type","Cardio (min)","Steps","Resting HR","Calories","Notes / Events","Protocol Active","Water Intake (L)","Bowel Regularity (1–5)","Stress (1–10)","Libido (1–5)"];
+let raw = []; let weekly = new Map(); let monthly = new Map();
+const LS_KEY = "hybrid_athlete_daily_log_offline_v4";
+const LS_SETTINGS = "hybrid_athlete_settings_v4";
+let settings = { maint: 3300, stepGoal: 10000 };
+
+function parseDate(s){ const t = Date.parse(s); return isNaN(t)? null: new Date(t); }
+function fmtDate(d){ const y=d.getFullYear(); const m=String(d.getMonth()+1).padStart(2,'0'); const da=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${da}`; }
+function dayName(d){ return ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][d.getDay()]; }
+function monthKey(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
+function isoWeek(dt){
+  const d = new Date(Date.UTC(dt.getFullYear(), dt.getMonth(), dt.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
+  const weekNo = Math.ceil((((d - yearStart)/86400000)+1)/7);
+  return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2,'0')}`;
+}
+function toNum(v){ if(v===null||v===undefined||v==="") return null; const n = parseFloat(String(v).replace(/,/g,'')); return isNaN(n)? null : n; }
+function saveLocal(){ localStorage.setItem(LS_KEY, JSON.stringify(raw)); }
+function loadLocal(){ const s = localStorage.getItem(LS_KEY); if(s){ try{ raw = JSON.parse(s);}catch(e){ raw=[]; } } }
+function saveSettings(){ localStorage.setItem(LS_SETTINGS, JSON.stringify(settings)); }
+function loadSettings(){ const s = localStorage.getItem(LS_SETTINGS); if(s){ try{ settings = {...settings, ...JSON.parse(s)};}catch(e){} } }
+function sortRaw(){ raw.sort((a,b)=> parseDate(a.Date)-parseDate(b.Date)); }
+
+// ====== CRUD ======
+function upsert(entry){
+  const idx = raw.findIndex(r=> r.Date === entry.Date);
+  if(idx>=0) raw[idx] = entry; else raw.push(entry);
+  sortRaw(); saveLocal();
+}
+function remove(dateStr){ raw = raw.filter(r=> r.Date !== dateStr); saveLocal(); }
+function scaffoldMonth(ym){
+  const [y,m] = ym.split("-").map(Number);
+  const start = new Date(y, m-1, 1); const next = new Date(y, m, 1);
+  for(let d=new Date(start); d<next; d.setDate(d.getDate()+1)){
+    const dd = fmtDate(d);
+    if(!raw.find(r=> r.Date===dd)){
+      const blank = {}; COLS.forEach(c=> blank[c]="");
+      blank["Date"]=dd; blank["Day"]=dayName(d);
+      raw.push(blank);
+    }
+  }
+  sortRaw(); saveLocal();
+}
+function duplicateLastWeek(){
+  if(raw.length===0) return;
+  const lastDate = parseDate(raw[raw.length-1].Date);
+  const start = new Date(lastDate); start.setDate(start.getDate()+1);
+  for(let i=0;i<7;i++){
+    const d = new Date(start); d.setDate(d.getDate()+i);
+    const dd = fmtDate(d);
+    const src = raw[raw.length-7+i] || raw[raw.length-1];
+    raw.push({ ...src, Date: dd, Day: dayName(d) });
+  }
+  sortRaw(); saveLocal();
+}
+
+// ====== Aggregation & readiness ======
+function aggregate(){
+  weekly.clear(); monthly.clear();
+  raw.forEach(r=>{
+    const dt = parseDate(r.Date); if(!dt) return;
+    const wk = isoWeek(dt); const mon = monthKey(dt);
+    if(!weekly.has(wk)) weekly.set(wk,{rows:[]});
+    if(!monthly.has(mon)) monthly.set(mon,{rows:[]});
+    weekly.get(wk).rows.push(r);
+    monthly.get(mon).rows.push(r);
+  });
+  const fields = ["Weight (kg)","Sleep (hr)","Energy (1–10)","Mood (1–10)","Resting HR"];
+  for(const map of [weekly, monthly]){
+    for(const [k,b] of map.entries()){
+      const sums={}, cnts={}; fields.forEach(f=>{sums[f]=0; cnts[f]=0;}); let steps=0;
+      b.rows.forEach(r=>{
+        fields.forEach(f=>{ const v=toNum(r[f]); if(v!=null){ sums[f]+=v; cnts[f]++; }});
+        steps += (toNum(r["Steps"])||0);
+      });
+      b.avgs={}; fields.forEach(f=> b.avgs[f] = cnts[f]? sums[f]/cnts[f] : null);
+      b.steps = steps;
+      // avg calories
+      const kcals = b.rows.map(r=> toNum(r["Calories"])).filter(v=> v!=null);
+      b.kcalAvg = kcals.length? kcals.reduce((a,c)=>a+c,0)/kcals.length : null;
+    }
+  }
+}
+function rolling4w(map, keys, field){
+  return keys.map((k,i)=>{
+    const s=Math.max(0,i-3); let sum=0,c=0;
+    for(let j=s;j<=i;j++){ const v = map.get(keys[j]).avgs[field]; if(v!=null){ sum+=v; c++; } }
+    return c? sum/c : null;
+  });
+}
+function readinessFrom(avgs, rhr4w){
+  const sleep = Math.max(0, Math.min(1, ((avgs["Sleep (hr)"]||0)-6)/3));
+  const energy = (avgs["Energy (1–10)"]||0)/10;
+  const mood = (avgs["Mood (1–10)"]||0)/10;
+  const rhr = avgs["Resting HR"]||0;
+  const rhrScore = (rhr4w!=null)? Math.max(0, Math.min(1, ((rhr4w - rhr + 5)/10))) : 0.5;
+  return Math.round(100*(0.30*sleep + 0.30*energy + 0.20*mood + 0.20*rhrScore));
+}
+
+// ====== UI: selectors & history ======
+const segmentSel = document.getElementById('segment');
+const weekSel = document.getElementById('weekSelect');
+const monthSel = document.getElementById('monthSelect');
+const prevBtn = document.getElementById('prevBtn');
+const nextBtn = document.getElementById('nextBtn');
+const windowSel = document.getElementById('windowSel');
+
+segmentSel.addEventListener('change', ()=> render(segmentSel.value));
+weekSel.addEventListener('change', ()=> render(segmentSel.value));
+monthSel.addEventListener('change', ()=> render(segmentSel.value));
+windowSel.addEventListener('change', ()=> render(segmentSel.value));
+
+prevBtn.addEventListener('click', ()=> shiftSelection(-1));
+nextBtn.addEventListener('click', ()=> shiftSelection(+1));
+
+function shiftSelection(delta){
+  const seg = segmentSel.value;
+  if(seg==='week'){
+    const keys=[...weekly.keys()].sort();
+    let idx = keys.indexOf(weekSel.value || isoWeek(new Date()));
+    if(idx<0) idx = keys.length-1;
+    idx = Math.max(0, Math.min(keys.length-1, idx+delta));
+    weekSel.value = keys[idx] || "";
+  }else if(seg==='month'){
+    const keys=[...monthly.keys()].sort();
+    let idx = keys.indexOf(monthSel.value || monthKey(new Date()));
+    if(idx<0) idx = keys.length-1;
+    idx = Math.max(0, Math.min(keys.length-1, idx+delta));
+    monthSel.value = keys[idx] || "";
+  }
+  render(seg);
+}
+
+function populateSelectors(){
+  weekSel.innerHTML = '<option value="">This Week (auto)</option>';
+  monthSel.innerHTML = '<option value="">This Month (auto)</option>';
+  [...weekly.keys()].sort().forEach(k=>{ const o=document.createElement('option'); o.value=k; o.textContent=k; weekSel.appendChild(o); });
+  [...monthly.keys()].sort().forEach(k=>{ const o=document.createElement('option'); o.value=k; o.textContent=k; monthSel.appendChild(o); });
+}
+
+// ====== KPIs ======
+function setKPI(valId, deltaId, cur, avg4w, invert=false){
+  const valEl=document.getElementById(valId); const delEl=document.getElementById(deltaId);
+  const v = cur==null? '—' : (invert? Number(cur).toFixed(0) : Number(cur).toFixed(2));
+  valEl.textContent = v;
+  let txt='—', cls='';
+  if(avg4w!=null && cur!=null){
+    const d = cur - avg4w;
+    txt = (d>=0? '+' : '') + (invert? d.toFixed(0) : d.toFixed(2));
+    if(invert){ if(d <= -1) cls='ok'; else if(Math.abs(d)<1) cls='warn'; else cls='bad'; }
+    else { if(d >= 0.5) cls='ok'; else if(Math.abs(d)<0.5) cls='warn'; else cls='bad'; }
+  }
+  delEl.textContent = 'vs 4W ' + txt; delEl.className = 'delta ' + cls;
+}
+
+// ====== Canvas charts ======
+function drawAxes(ctx, w, h, pad, xTicks, yMin, yMax){
+  ctx.strokeStyle = '#2a334a'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(pad, pad); ctx.lineTo(pad, h-pad); ctx.lineTo(w-pad, h-pad); ctx.stroke();
+  ctx.fillStyle = '#9aa8b4'; ctx.font = '12px sans-serif';
+  const xStep = (w - 2*pad) / Math.max(1, xTicks.length-1);
+  xTicks.forEach((lab,i)=>{
+    if(i%Math.ceil(xTicks.length/10)===0){
+      const x = pad + i*xStep; ctx.fillText(lab, x-10, h - pad + 14);
+    }
+  });
+  const ticks = 4;
+  for(let i=0;i<=ticks;i++){
+    const y = h - pad - (i/ticks)*(h-2*pad);
+    ctx.strokeStyle = '#1c2338'; ctx.beginPath(); ctx.moveTo(pad, y); ctx.lineTo(w-pad, y); ctx.stroke();
+    const val = (yMin + (i/ticks)*(yMax - yMin)).toFixed(0);
+    ctx.fillStyle = '#9aa8b4'; ctx.fillText(val, 4, y+4);
+  }
+}
+function mapY(v, h, pad, yMin, yMax){ if(v==null) return null; const t=(v-yMin)/(yMax-yMin); return h - pad - t*(h-2*pad); }
+function line(ctx, pts, color){ ctx.strokeStyle=color; ctx.lineWidth=2; ctx.beginPath(); let started=false; pts.forEach(p=>{ if(p && p.y!=null){ if(!started){ ctx.moveTo(p.x,p.y); started=true;} else { ctx.lineTo(p.x,p.y); } }}); ctx.stroke(); }
+function drawLineChart(canvas, labels, series){
+  const ctx = canvas.getContext('2d'); const w=canvas.width, h=canvas.height, pad=40;
+  ctx.clearRect(0,0,w,h);
+  let allVals=[]; series.forEach(s=> allVals = allVals.concat(s.data.filter(v=> v!=null)));
+  if(allVals.length===0){ return; }
+  const yMin = Math.min(...allVals.map(v=>Number(v))) - 5;
+  const yMax = Math.max(...allVals.map(v=>Number(v))) + 5;
+  drawAxes(ctx, w, h, pad, labels, yMin, yMax);
+  const xStep = (w - 2*pad) / Math.max(1, labels.length-1);
+  series.forEach(s=>{
+    const pts = s.data.map((v,i)=> ({x: pad + i*xStep, y: mapY(v, h, pad, yMin, yMax)}));
+    line(ctx, pts, s.color);
+  });
+}
+function drawBarChart(canvas, labels, data){
+  const ctx = canvas.getContext('2d'); const w=canvas.width, h=canvas.height, pad=40;
+  ctx.clearRect(0,0,w,h);
+  const yMin = 0; const yMax = Math.max(100, Math.max(...data.map(v=> v||0)));
+  drawAxes(ctx, w, h, pad, labels, yMin, yMax);
+  const bw = Math.max(8, (w - 2*pad)/Math.max(1,data.length) * 0.6);
+  const step = (w - 2*pad)/Math.max(1,data.length-1);
+  data.forEach((v,i)=>{
+    const x = pad + i*step - bw/2;
+    const y = mapY(v, h, pad, yMin, yMax);
+    ctx.fillStyle = '#7bd389'; ctx.fillRect(x, y, bw, h - pad - y);
+  });
+}
+
+// ====== Insights ======
+function makeInsights(){
+  const list = document.getElementById('insightsList');
+  if(weekly.size < 2){ list.textContent = "Add another week of data to unlock insights."; return; }
+  const keys=[...weekly.keys()].sort();
+  // best energy week, lowest RHR week, highest steps week, kcal vs maint in current week
+  let bestEnergy = {k:null,v:-1}, lowRHR = {k:null,v:1e9}, highSteps = {k:null,v:-1};
+  keys.forEach(k=>{
+    const b=weekly.get(k);
+    if(b.avgs["Energy (1–10)"]!=null && b.avgs["Energy (1–10)"]>bestEnergy.v) bestEnergy={k,v:b.avgs["Energy (1–10)"]};
+    if(b.avgs["Resting HR"]!=null && b.avgs["Resting HR"]<lowRHR.v) lowRHR={k,v:b.avgs["Resting HR"]};
+    if(b.steps!=null && b.steps>highSteps.v) highSteps={k,v:b.steps};
+  });
+  const curK = keys[keys.length-1]; const curB = weekly.get(curK);
+  const kcalDelta = (curB.kcalAvg!=null && settings.maint)? Math.round(curB.kcalAvg - settings.maint) : null;
+  const msgs = [];
+  if(bestEnergy.k) msgs.push(`Highest Energy: <b>${bestEnergy.k}</b> (avg ${bestEnergy.v.toFixed(2)})`);
+  if(lowRHR.k) msgs.push(`Lowest RHR: <b>${lowRHR.k}</b> (${lowRHR.v.toFixed(1)} bpm)`);
+  if(highSteps.k) msgs.push(`Most Steps: <b>${highSteps.k}</b> (${Math.round(highSteps.v).toLocaleString()} steps)`);
+  if(kcalDelta!=null) msgs.push(`This week kcal vs maintenance: <b>${kcalDelta>=0? '+' : ''}${kcalDelta}</b> kcal/day`);
+  list.innerHTML = msgs.map(m=> `<div>• ${m}</div>`).join("");
+}
+
+// ====== Render ======
+function render(segment="week"){
+  aggregate(); populateSelectors(); makeInsights();
+  const now = new Date(); const autoW = isoWeek(now); const autoM = monthKey(now);
+  const wkKeys=[...weekly.keys()].sort();
+  const moKeys=[...monthly.keys()].sort();
+  const effW = weekSel.value || autoW;
+  const effM = monthSel.value || autoM;
+  // Chart window
+  let viewKeys = wkKeys.slice();
+  const win = parseInt(windowSel.value||"4",10);
+  if(win>0 && viewKeys.length>win) viewKeys = viewKeys.slice(-win);
+
+  const idx = wkKeys.indexOf(effW);
+  const fourW_w = rolling4w(weekly, wkKeys, "Weight (kg)");
+  const fourW_s = rolling4w(weekly, wkKeys, "Sleep (hr)");
+  const fourW_e = rolling4w(weekly, wkKeys, "Energy (1–10)");
+  const fourW_m = rolling4w(weekly, wkKeys, "Mood (1–10)");
+  const fourW_r = rolling4w(weekly, wkKeys, "Resting HR");
+  const fourW_steps = wkKeys.map((k,i)=>{
+    const s=Math.max(0,i-3); let sum=0,n=0; for(let j=s;j<=i;j++){ sum+=weekly.get(wkKeys[j]).steps; n++; } return n? sum/n : null;
+  });
+
+  const curB = weekly.get(effW) || monthly.get(effM);
+  const cur = curB? curB.avgs : {}; const curSteps = curB? curB.steps : null;
+  setKPI('kpiWeight','kpiWeightDelta', cur["Weight (kg)"], (idx>=0? fourW_w[idx]: null), true);
+  setKPI('kpiSleep','kpiSleepDelta', cur["Sleep (hr)"], (idx>=0? fourW_s[idx]: null));
+  setKPI('kpiEnergy','kpiEnergyDelta', cur["Energy (1–10)"], (idx>=0? fourW_e[idx]: null));
+  setKPI('kpiMood','kpiMoodDelta', cur["Mood (1–10)"], (idx>=0? fourW_m[idx]: null));
+  setKPI('kpiSteps','kpiStepsDelta', curSteps, (idx>=0? fourW_steps[idx]: null));
+  setKPI('kpiRHR','kpiRHRDelta', cur["Resting HR"], (idx>=0? fourW_r[idx]: null), true);
+
+  // Charts (windowed)
+  const sWeight = viewKeys.map(k=> weekly.get(k).avgs["Weight (kg)"]);
+  const sSleep  = viewKeys.map(k=> weekly.get(k).avgs["Sleep (hr)"]);
+  const sEnergy = viewKeys.map(k=> weekly.get(k).avgs["Energy (1–10)"]);
+  const sRHR    = viewKeys.map(k=> weekly.get(k).avgs["Resting HR"]);
+  drawLineChart(document.getElementById('trendChart'), viewKeys, [
+    {label:'Weight', color:'#8ab4f8', data:sWeight},
+    {label:'Sleep', color:'#7bd389', data:sSleep},
+    {label:'Energy', color:'#f6c85f', data:sEnergy},
+    {label:'RHR', color:'#ff8c8c', data:sRHR},
+  ]);
+  const rhr4 = rolling4w(weekly, wkKeys, "Resting HR");
+  const readiness = viewKeys.map(k=>{
+    const i = wkKeys.indexOf(k);
+    return readinessFrom(weekly.get(k).avgs, rhr4[i]);
+  });
+  drawBarChart(document.getElementById('readyChart'), viewKeys, readiness);
+
+  // Table
+  const label = document.getElementById('rangeLabel');
+  const thead = document.querySelector('#dataTable thead');
+  const tbody = document.querySelector('#dataTable tbody');
+  thead.innerHTML=''; tbody.innerHTML='';
+  if(segment==='day'){
+    label.textContent = "Daily Entries (All history)";
+    const trh=document.createElement('tr');
+    [...COLS,"Actions"].forEach(c=>{ const th=document.createElement('th'); th.textContent=c; trh.appendChild(th); });
+    thead.appendChild(trh);
+    raw.forEach(r=>{
+      const tr=document.createElement('tr');
+      COLS.forEach(c=>{ const td=document.createElement('td'); td.textContent=r[c]||''; tr.appendChild(td); });
+      const tdA=document.createElement('td');
+      const bE=document.createElement('button'); bE.textContent="Edit"; bE.onclick=()=> loadToForm(r.Date);
+      const bD=document.createElement('button'); bD.textContent="Delete"; bD.onclick=()=>{ if(confirm("Delete "+r.Date+"?")){ remove(r.Date); fullRefresh(); }};
+      tdA.appendChild(bE); tdA.appendChild(bD); tr.appendChild(tdA);
+      tbody.appendChild(tr);
+    });
+  } else if(segment==='month'){
+    label.textContent = "Monthly Averages (All history)";
+    const trh=document.createElement('tr');
+    ["Month","Avg Weight","Avg Sleep","Avg Energy","Avg Mood","Steps Total","Avg RHR","Avg kcal","Readiness"].forEach(c=>{ const th=document.createElement('th'); th.textContent=c; trh.appendChild(th); });
+    thead.appendChild(trh);
+    moKeys.forEach((k,i)=>{
+      const b=monthly.get(k); const r4m=null; // keep simple for months
+      const ready=readinessFrom(b.avgs, r4m);
+      const tr=document.createElement('tr');
+      [k,b.avgs["Weight (kg)"],b.avgs["Sleep (hr)"],b.avgs["Energy (1–10)"],b.avgs["Mood (1–10)"],b.steps,b.avgs["Resting HR"],b.kcalAvg,ready]
+        .forEach(v=>{ const td=document.createElement('td'); td.textContent=(v==null)?'—':(typeof v==='number'? v.toFixed(2): v); tr.appendChild(td); });
+      tbody.appendChild(tr);
+    });
+  } else {
+    label.textContent = "Weekly Averages (All history)";
+    const trh=document.createElement('tr');
+    ["Week","Avg Weight","Avg Sleep","Avg Energy","Avg Mood","Steps Total","Avg RHR","Avg kcal","Readiness"].forEach(c=>{ const th=document.createElement('th'); th.textContent=c; trh.appendChild(th); });
+    thead.appendChild(trh);
+    wkKeys.forEach((k,i)=>{
+      const b=weekly.get(k); const ready=readinessFrom(b.avgs, rolling4w(weekly, wkKeys, "Resting HR")[i]);
+      const tr=document.createElement('tr');
+      [k,b.avgs["Weight (kg)"],b.avgs["Sleep (hr)"],b.avgs["Energy (1–10)"],b.avgs["Mood (1–10)"],b.steps,b.avgs["Resting HR"],b.kcalAvg,ready]
+        .forEach(v=>{ const td=document.createElement('td'); td.textContent=(v==null)?'—':(typeof v==='number'? v.toFixed(2): v); tr.appendChild(td); });
+      tbody.appendChild(tr);
+    });
+  }
+}
+
+// ====== Protocol Advisor ======
+document.getElementById('btnSuggest').addEventListener('click', runAdvisor);
+function runAdvisor(){
+  const wkKeys = [...weekly.keys()].sort();
+  const adviceText = document.getElementById('adviceText');
+  const list = document.getElementById('adviceList');
+  list.innerHTML = "";
+  if(wkKeys.length===0){ adviceText.textContent="No data yet — add entries or scaffold a month."; return; }
+  const idx = wkKeys.length - 1;
+  const cur = weekly.get(wkKeys[idx]);
+  const get = (b,f)=> b && b.avgs[f]!=null ? b.avgs[f] : null;
+  const curSleep = get(cur,"Sleep (hr)");
+  const curEnergy = get(cur,"Energy (1–10)");
+  const curMood = get(cur,"Mood (1–10)");
+  const curRHR = get(cur,"Resting HR");
+  const fourRHR = rolling4w(weekly, wkKeys, "Resting HR")[idx];
+  const advice = [];
+  if(curEnergy!=null && curEnergy <= 5){
+    advice.push({title:"Burnout Recovery (5–7 days)", why:"Energy ≤ 5 indicates CNS/cortisol fatigue.", do:"+300 kcal, −40% volume, Zone 1 walks, 8–9 h sleep."});
+  }
+  if(curSleep!=null && curSleep < 6.5){
+    advice.push({title:"Sleep Recovery (3–5 days)", why:"Average sleep < 6.5 hr degrades performance and hunger control.", do:"No caffeine after noon, 50 g carbs at dinner, dark/cool room, magnesium glycinate."});
+  }
+  if(fourRHR!=null && curRHR!=null && curRHR - fourRHR >= 5){
+    advice.push({title:"Two‑Day Active Rest", why:"RHR is ≥ 5 bpm above 4‑week average.", do:"2 × 25–30 min walks, no intense training; resume at −10% load."});
+  }
+  if(curMood!=null && curMood <= 5){
+    advice.push({title:"Emotional Regulation Reset (1–3 days)", why:"Mood ≤ 5 suggests nervous-system imbalance.", do:"Gentle movement, journaling, sunlight; maintain maintenance calories."});
+  }
+  // Calories vs maintenance
+  if(cur.kcalAvg!=null && settings.maint){
+    const delta = Math.round(cur.kcalAvg - settings.maint);
+    if(delta >= 300){
+      advice.push({title:"Tighten-Up (3–7 days)", why:`Avg kcal ~${delta} above maintenance.`, do:"+45–60 min extra Zone 1 walks over the week; aim back at maintenance."});
+    }
+  }
+  // detect "binge" in last 7 notes
+  const last7 = raw.slice(-7).map(r=> (r["Notes / Events"]||"").toLowerCase()).join(" ");
+  if(last7.includes("binge")){
+    advice.push({title:"Binge Recovery (1–3 days)", why:"Recent binge noted.", do:"Return to maintenance; add +1 to +3 × 45‑min walks depending on binge length."});
+  }
+  if(advice.length===0){ adviceText.textContent="All green. Stay on Infinite Maintenance."; return; }
+  adviceText.textContent="Recommendations:";
+  advice.forEach(a=>{
+    const div = document.createElement('div'); div.className="card";
+    div.innerHTML = `<h3>${a.title}</h3><div class="small"><span class="badge">Why</span> ${a.why}<br/><span class="badge">Do</span> ${a.do}</div>`;
+    list.appendChild(div);
+  });
+}
+
+// ====== Settings bind ======
+document.getElementById('btnSaveSettings').addEventListener('click', ()=>{
+  const m = parseInt(document.getElementById('setMaint').value||"0",10);
+  const s = parseInt(document.getElementById('setSteps').value||"0",10);
+  if(m>0) settings.maint = m;
+  if(s>0) settings.stepGoal = s;
+  saveSettings();
+  render(segmentSel.value);
+});
+
+// ====== Form & actions ======
+function loadToForm(dateStr){
+  const r = raw.find(x=> x.Date===dateStr); if(!r) return;
+  document.getElementById('inDate').value = r["Date"];
+  document.getElementById('inWeight').value = r["Weight (kg)"];
+  document.getElementById('inSleep').value = r["Sleep (hr)"];
+  document.getElementById('inEnergy').value = r["Energy (1–10)"];
+  document.getElementById('inMood').value = r["Mood (1–10)"];
+  document.getElementById('inHunger').value = r["Hunger (1–10)"];
+  document.getElementById('inTraining').value = r["Training Type"];
+  document.getElementById('inCardio').value = r["Cardio (min)"];
+  document.getElementById('inSteps').value = r["Steps"];
+  document.getElementById('inRHR').value = r["Resting HR"];
+  document.getElementById('inCalories').value = r["Calories"];
+  document.getElementById('inWater').value = r["Water Intake (L)"];
+  document.getElementById('inBowel').value = r["Bowel Regularity (1–5)"];
+  document.getElementById('inStress').value = r["Stress (1–10)"];
+  document.getElementById('inLibido').value = r["Libido (1–5)"];
+  document.getElementById('inNotes').value = r["Notes / Events"];
+  document.getElementById('inProtocol').value = r["Protocol Active"];
+}
+
+document.getElementById('btnNewMonth').addEventListener('click', ()=>{
+  const ym = prompt("Start new month (format YYYY-MM):", new Date().toISOString().slice(0,7));
+  if(ym && /^\d{4}-\d{2}$/.test(ym)){ scaffoldMonth(ym); fullRefresh(); }
+});
+document.getElementById('btnGenerateWeek').addEventListener('click', ()=>{ duplicateLastWeek(); fullRefresh(); });
+document.getElementById('btnToday').addEventListener('click', ()=>{
+  const d = new Date(); document.getElementById('inDate').value = fmtDate(d);
+});
+document.getElementById('btnDupYday').addEventListener('click', ()=>{
+  if(raw.length===0){ alert("No previous day to duplicate."); return; }
+  const last = raw[raw.length-1];
+  const next = parseDate(last.Date); next.setDate(next.getDate()+1);
+  const e = {...last, Date: fmtDate(next), Day: dayName(next)};
+  upsert(e); loadToForm(e.Date); fullRefresh();
+});
+
+document.getElementById('btnAdd').addEventListener('click', ()=>{
+  const d = document.getElementById('inDate').value;
+  if(!d){ alert("Please select a date"); return; }
+  const dt = parseDate(d);
+  const e = {}; COLS.forEach(c=> e[c]="");
+  e["Date"]=fmtDate(dt); e["Day"]=dayName(dt);
+  e["Weight (kg)"]=document.getElementById('inWeight').value;
+  e["Sleep (hr)"]=document.getElementById('inSleep').value;
+  e["Energy (1–10)"]=document.getElementById('inEnergy').value;
+  e["Mood (1–10)"]=document.getElementById('inMood').value;
+  e["Hunger (1–10)"]=document.getElementById('inHunger').value;
+  e["Training Type"]=document.getElementById('inTraining').value;
+  e["Cardio (min)"]=document.getElementById('inCardio').value;
+  e["Steps"]=document.getElementById('inSteps').value;
+  e["Resting HR"]=document.getElementById('inRHR').value;
+  e["Calories"]=document.getElementById('inCalories').value;
+  e["Water Intake (L)"]=document.getElementById('inWater').value;
+  e["Bowel Regularity (1–5)"]=document.getElementById('inBowel').value;
+  e["Stress (1–10)"]=document.getElementById('inStress').value;
+  e["Libido (1–5)"]=document.getElementById('inLibido').value;
+  e["Notes / Events"]=document.getElementById('inNotes').value;
+  e["Protocol Active"]=document.getElementById('inProtocol').value;
+  upsert(e); fullRefresh();
+});
+document.getElementById('btnResetForm').addEventListener('click', ()=>{
+  document.querySelectorAll('#inDate, #inWeight, #inSleep, #inEnergy, #inMood, #inHunger, #inTraining, #inCardio, #inSteps, #inRHR, #inCalories, #inWater, #inBowel, #inStress, #inLibido, #inNotes').forEach(el=> el.value="");
+});
+document.getElementById('btnDelete').addEventListener('click', ()=>{
+  const d = document.getElementById('inDate').value;
+  if(!d){ alert("Pick a date in the form first"); return; }
+  if(confirm("Delete entry for " + d + "?")){ remove(d); fullRefresh(); }
+});
+
+// ====== Backup/Restore/Export ======
+document.getElementById('btnBackup').addEventListener('click', ()=>{
+  const blob = new Blob([JSON.stringify(raw,null,2)], {type:"application/json"});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = "hybrid_athlete_backup.json"; a.click();
+});
+document.getElementById('btnRestore').addEventListener('click', ()=> document.getElementById('restoreFile').click());
+document.getElementById('restoreFile').addEventListener('change', (e)=>{
+  const f = e.target.files[0]; if(!f) return;
+  const reader = new FileReader();
+  reader.onload = ev => { try{ raw = JSON.parse(ev.target.result); saveLocal(); fullRefresh(); }catch(err){ alert("Invalid JSON"); } };
+  reader.readAsText(f);
+});
+document.getElementById('btnClear').addEventListener('click', ()=>{
+  if(confirm("Clear all local data? This cannot be undone (unless you backed up JSON).")){ localStorage.removeItem(LS_KEY); raw=[]; fullRefresh(); }
+});
+document.getElementById('btnExportCurrent').addEventListener('click', ()=>{
+  // Export based on current segment and table rows
+  const seg = segmentSel.value;
+  let headers=[], rows=[];
+  if(seg==='day'){
+    headers = [...COLS];
+    rows = raw.map(r=> COLS.map(h=> r[h] ?? ""));
+  }else if(seg==='week'){
+    headers = ["Week","Avg Weight","Avg Sleep","Avg Energy","Avg Mood","Steps Total","Avg RHR","Avg kcal","Readiness"];
+    const keys=[...weekly.keys()].sort();
+    const r4 = rolling4w(weekly, keys, "Resting HR");
+    rows = keys.map((k,i)=>{
+      const b=weekly.get(k);
+      const ready = readinessFrom(b.avgs, r4[i]);
+      return [k,b.avgs["Weight (kg)"],b.avgs["Sleep (hr)"],b.avgs["Energy (1–10)"],b.avgs["Mood (1–10)"],b.steps,b.avgs["Resting HR"],b.kcalAvg,ready].map(v=> v==null? "": (typeof v==='number'? v.toFixed(2): v));
+    });
+  }else{
+    headers = ["Month","Avg Weight","Avg Sleep","Avg Energy","Avg Mood","Steps Total","Avg RHR","Avg kcal","Readiness"];
+    const keys=[...monthly.keys()].sort();
+    rows = keys.map((k)=>{
+      const b=monthly.get(k);
+      const ready = readinessFrom(b.avgs, null);
+      return [k,b.avgs["Weight (kg)"],b.avgs["Sleep (hr)"],b.avgs["Energy (1–10)"],b.avgs["Mood (1–10)"],b.steps,b.avgs["Resting HR"],b.kcalAvg,ready].map(v=> v==null? "": (typeof v==='number'? v.toFixed(2): v));
+    });
+  }
+  const csv = [headers.join(","), ...rows.map(r=> r.map(v=> `"${String(v).replace(/"/g,'""')}"`).join(","))].join("\n");
+  const blob = new Blob([csv], {type:"text/csv;charset=utf-8"});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = "current_view.csv"; a.click();
+});
+
+// ====== Init ======
+(function init(){
+  loadSettings();
+  document.getElementById('setMaint').value = settings.maint;
+  document.getElementById('setSteps').value = settings.stepGoal;
+
+  const s = localStorage.getItem(LS_KEY);
+  if(s){ try{ raw = JSON.parse(s);}catch(e){ raw=[]; } }
+  if(!s || raw.length===0){
+    // scaffold current month for quick start
+    const today = new Date();
+    const ym = today.toISOString().slice(0,7);
+    scaffoldMonth(ym);
+  }
+  fullRefresh();
+})();
+
+function fullRefresh(){ aggregate(); render(segmentSel.value); }
+</script>
+</body>
+</html>
